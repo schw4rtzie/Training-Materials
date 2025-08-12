@@ -1,0 +1,183 @@
+################################################################################
+#OpenSearch API Commands
+#For use in DefCon Training class: Solving Modern Cybersecurity Problems with AI
+#Brought to you by Michael Glass and "K" Singh
+################################################################################
+
+#Enable conversational chat features
+PUT /_cluster/settings 
+{ 
+  "persistent": { 
+
+    "assistant.chat.enabled": true, 
+    "observability.query_assist.enabled": true
+  } 
+}
+
+#Configure root agent_id
+PUT .plugins-ml-config/_doc/os_chat 
+{ 
+    "type":"os_chat_root_agent", 
+    "configuration":{ 
+        "agent_id": "your root agent id" 
+    } 
+} 
+
+#You need to PUT this with the admin certificate in a production setup
+curl --insecure --cert admin.pem --key admin-key.pem -H "Content-Type: application/json" -XPUT https://localhost:9200/.plugins-ml-config/_doc/os_chat -d ' 
+
+ { 
+   "type":"os_chat_root_agent", 
+   "configuration":{ 
+     "agent_id": "y8PCHJABM8E_-Dt1ZSBY" 
+   }
+ } 
+ 
+################################################################################
+#Lab 6 Commands
+################################################################################
+
+POST /_plugins/_ml/connectors/_create
+{
+  "name": "OpenAI Chat Connector",
+  "description": "LMStudio Connector for lab 6",
+  "version": "2",
+  "protocol": "http",
+  "parameters": {
+    "endpoint": "http://20.120.179.203:5000",
+    "model": "openvoid/prox-7b-dpo-gguf",
+    "temperature": 0.5
+  },
+  "actions": [
+    {
+      "action_type": "predict",
+      "method": "POST",
+      "url": "${parameters.endpoint}/v1/chat/completions",
+      "request_body": """{ "model": "${parameters.model}", "messages": ${parameters.messages}, "temperature": ${parameters.temperature} }"""
+    }
+  ]
+}
+
+POST /_plugins/_ml/model_groups/_register
+{
+  "name": "lab6_model_group", 
+  "description": "The model group we're using now for testing"
+}
+
+POST /_plugins/_ml/models/_register
+{
+  "name": "lab6-rag-model",
+  "function_name": "remote",
+  "model_group_id": "GdnkFZEByEgpCof4lLI0",
+  "description": "Mistral model demo",
+  "connector_id": "EtnjFZEByEgpCof4sbIn"
+}
+
+POST /_plugins/_ml/models/HtnkFZEByEgpCof4tLJ0/_deploy
+
+PUT /_search/pipeline/openai_pipeline 
+{ 
+  "response_processors": [ 
+	{ 
+  	"retrieval_augmented_generation": { 
+    	"tag": "lab6", 
+    	"description": "lab6-rag-pipeline", 
+    	"model_id": "HtnkFZEByEgpCof4tLJ0", 
+    	"context_field_list": ["severity", "message"], 
+    	"system_prompt": "You are a helpful assistant. Never make up an answer. If you're not sure of something, you MUST say that you don't know.", 
+    	"user_instructions": "I will send you some information that MAY be relevant to the context of the question." 
+  	} 
+	} 
+  ] 
+} 
+
+GET /opensearch_con/_search?search_pipeline=openai_pipeline 
+{ 
+  "query": { 
+    "bool": { 
+      "filter": [ 
+        { 
+          "exists": { 
+            "field": "severity" 
+          } 
+        } 
+      ], 
+      "must": [ 
+        { 
+          "match": { 
+            "message": { 
+              "query": "which modules were loaded?" 
+            } 
+          } 
+        } 
+      ] 
+    } 
+  }, 
+  "ext": { 
+    "generative_qa_parameters": { 
+      "llm_model": "openvoid/prox-7b-dpo-gguf", 
+      "llm_question": "which modules were loaded?", 
+      "context_size": 20, 
+      "timeout": 30 
+    } 
+  } 
+} 
+
+################################################################################
+
+#Lab 7
+POST /_plugins/_ml/agents/_register
+{
+  "name": "Test_Agent_For_RAG",
+  "type": "conversational_flow",
+  "description": "this is a test agent",
+  "app_type": "rag",
+  "memory": {
+    "type": "conversation_index"
+  },
+  "tools": [
+    {
+      "type": "VectorDBTool",
+      "parameters": {
+        "model_id": "uCSF6pABd2qN_ubfPaSt",
+        "index": "my_test_data",
+        "embedding_field": "embedding",
+        "source_field": ["text"],
+        "input": "${parameters.question}"
+      }
+    },
+    {
+      "type": "MLModelTool",
+      "description": "A general tool to answer any question",
+      "parameters": {
+        "model_id": "1v4E65ABdV33CmeA85O-",
+        "response_filter": "$.choices[0].message.content",
+        "messages": [
+          {
+            "role": "assistant",
+            "content": "\n\nHuman:You are a professional data analysist. You will always answer question based on the given context first. If the answer is not directly shown in the context, you will analyze the data and find the answer. If you don't know the answer, just say don't know. \n\nContext:\n${parameters.population_knowledge_base.output:-}\n\n${parameters.chat_history:-}\n\nHuman:${parameters.question}\n\nAssistant:"
+          }
+        ],
+        "temperature": 0.5
+      }
+    }
+  ]
+}
+
+################################################################################
+
+#To obtain memory details, call the Get Memory API:
+
+GET /_plugins/_ml/memory/gQ75lI0BHcHmo_cz2acL
+
+#To obtain all messages within a memory, call the Get Messages API:
+
+GET /_plugins/_ml/memory/gQ75lI0BHcHmo_cz2acL/messages
+
+#To obtain message details, call the Get Message API:
+
+GET /_plugins/_ml/memory/message/gg75lI0BHcHmo_cz2acZ
+
+#For debugging purposes, you can obtain trace data for a message by calling the Get Message Traces API:
+
+GET /_plugins/_ml/memory/message/gg75lI0BHcHmo_cz2acZ/traces
