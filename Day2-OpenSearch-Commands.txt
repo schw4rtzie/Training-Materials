@@ -139,7 +139,7 @@ POST /_plugins/_ml/agents/_register
     {
       "type": "VectorDBTool",
       "parameters": {
-        "model_id": "uCSF6pABd2qN_ubfPaSt",
+        "model_id": "ZYM7n5gBlaNTCsEIM48r",
         "index": "my_test_data",
         "embedding_field": "embedding",
         "source_field": ["text"],
@@ -150,7 +150,7 @@ POST /_plugins/_ml/agents/_register
       "type": "MLModelTool",
       "description": "A general tool to answer any question",
       "parameters": {
-        "model_id": "1v4E65ABdV33CmeA85O-",
+        "model_id": "ZYM7n5gBlaNTCsEIM48r-",
         "response_filter": "$.choices[0].message.content",
         "messages": [
           {
